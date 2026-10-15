@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="ta" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kaappan (காப்பான்) - Personal Safety & SOS Web App</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        kaappan: {
+                            blue: '#1E40AF',
+                            brightblue: '#1D4ED8',
+                            darkblue: '#0F172A',
+                            navy: '#172554',
+                            yellow: '#FACC15',
+                            gold: '#EAB308',
+                            amber: '#F59E0B',
+                            sky: '#38BDF8'
+                        }
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 2s infinite',
+                        'ripple': 'ripple 1.8s infinite cubic-bezier(0, 0.2, 0.8, 1)',
+                        'flash-screen': 'flashRed 0.8s infinite alternate'
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%, 100%': { boxShadow: '0 0 25px rgba(250, 204, 21, 0.8), 0 0 50px rgba(239, 68, 68, 0.5)' },
+                            '50%': { boxShadow: '0 0 45px rgba(250, 204, 21, 1), 0 0 80px rgba(239, 68, 68, 0.8)' }
+                        },
+                        ripple: {
+                            '0%': { transform: 'scale(0.95)', opacity: '1' },
+                            '100%': { transform: 'scale(1.8)', opacity: '0' }
+                        },
+                        flashRed: {
+                            '0%': { backgroundColor: 'rgba(239, 68, 68, 0.3)' },
+                            '100%': { backgroundColor: 'rgba(239, 68, 68, 0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0F172A;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(30, 64, 175, 0.35) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(250, 204, 21, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+            touch-action: manipulation;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(250, 204, 21, 0.25);
+        }
+        .glass-card {
+            background: rgba(30, 58, 138, 0.25);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(250, 204, 21, 0.15);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between selection:bg-kaappan-yellow selection:text-slate-900">
+
+    <!-- Emergency Flash Overlay -->
+    <div id="emergencyFlashOverlay" class="fixed inset-0 z-50 pointer-events-none hidden"></div>
+
+    <!-- Main Mobile Frame Container -->
+    <div class="max-w-md w-full mx-auto min-h-screen flex flex-col justify-between p-4 relative overflow-hidden">
+        
+        <!-- HEADER BAR -->
+        <header class="flex items-center justify-between py-3 px-4 glass-panel rounded-2xl shadow-xl mb-4 border-b-2 border-kaappan-yellow/50">
+            <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-kaappan-yellow to-amber-500 flex items-center justify-center shadow-lg text-slate-950 font-black text-xl">
+                    🛡️
+                </div>
+                <div>
+                    <h1 class="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
+                        KAAPPAN <span class="text-xs px-2 py-0.5 rounded-full bg-kaappan-yellow text-slate-950 font-bold">காப்பான்</span>
+                    </h1>
+                    <p class="text-[10px] text-yellow-300/80 font-bold tracking-wider uppercase">Women & Personal Safety SOS</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="networkBadge" class="px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> ONLINE
+                </span>
+                <button id="logoutBtn" onclick="logoutUser()" class="hidden p-2 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 text-xs" title="Logout">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 1. AUTHENTICATION SECTION (Login & Register) -->
+        <div id="authSection" class="glass-panel rounded-3xl p-5 my-auto shadow-2xl border border-kaappan-yellow/30 w-full">
+            
+            <!-- Location Request Warning Banner -->
+            <div class="mb-4 p-3 bg-kaappan-yellow/15 border border-kaappan-yellow/40 rounded-xl flex items-center gap-3 text-xs text-yellow-300 font-semibold">
+                <i class="fa-solid fa-location-crosshairs text-lg text-kaappan-yellow animate-bounce"></i>
+                <span>Please allow Location Access when prompted for accurate high-precision tracking!</span>
+            </div>
+
+            <!-- Auth Tab Switcher -->
+            <div class="flex rounded-xl bg-slate-900/80 p-1 mb-5 border border-slate-800">
+                <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="flex-1 py-2 rounded-lg text-xs font-bold transition duration-200 bg-kaappan-yellow text-slate-950 shadow">Login</button>
+                <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="flex-1 py-2 rounded-lg text-xs font-bold transition duration-200 text-slate-400">Register First</button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-bold text-yellow-300/90 mb-1">Phone Number / Email</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-phone absolute left-3 top-3 text-slate-400 text-sm"></i>
+                        <input type="text" id="loginId" required placeholder="Enter Phone or Email" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl py-2.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-kaappan-yellow">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-yellow-300/90 mb-1">Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3 top-3 text-slate-400 text-sm"></i>
+                        <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl py-2.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-kaappan-yellow">
+                    </div>
+                </div>
+                <button type="submit" class="w-full py-3 bg-gradient-to-r from-kaappan-yellow to-amber-500 text-slate-950 font-black text-sm rounded-xl shadow-lg hover:brightness-110 active:scale-98 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-shield-halved"></i> SECURE LOGIN
+                </button>
+            </form>
+
+            <!-- REGISTER FORM -->
+            <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-3 hidden">
+                <div>
+                    <label class="block text-xs font-bold text-yellow-300/90 mb-1">Full Name</label>
+                    <input type="text" id="regName" required placeholder="e.g. Anitha Kumar" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl py-2 pl-3 pr-3 text-sm text-white focus:outline-none focus:border-kaappan-yellow">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-yellow-300/90 mb-1">Phone Number (10 Digits)</label>
+                    <input type="tel" id="regPhone" required pattern="[0-9]{10}" placeholder="9876543210" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl py-2 pl-3 pr-3 text-sm text-white focus:outline-none focus:border-kaappan-yellow">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-yellow-300/90 mb-1">Email Address</label>
+                    <input type="email" id="regEmail" required placeholder="anitha@example.com" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl py-2 pl-3 pr-3 text-sm text-white focus:outline-none focus:border-kaappan-yellow">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-yellow-300/90 mb-1">Password</label>
+                    <input type="password" id="regPassword" required minlength="4" placeholder="••••••••" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl py-2 pl-3 pr-3 text-sm text-white focus:outline-none focus:border-kaappan-yellow">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-yellow-300/90 mb-1">Emergency Deactivation PIN (4 Digits)</label>
+                    <input type="password" id="regPin" maxlength="4" pattern="[0-9]{4}" required placeholder="1234" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl py-2 pl-3 pr-3 text-sm text-white focus:outline-none focus:border-kaappan-yellow">
+                </div>
+                <button type="submit" class="w-full py-3 bg-gradient-to-r from-kaappan-yellow to-amber-500 text-slate-950 font-black text-sm rounded-xl shadow-lg hover:brightness-110 active:scale-98 transition flex items-center justify-center gap-2 mt-2">
+                    <i class="fa-solid fa-user-plus"></i> CREATE PROTECTED ACCOUNT
+                </button>
+            </form>
+        </div>
+
+        <!-- 2. MAIN DASHBOARD SECTION -->
+        <div id="dashboardSection" class="hidden flex-1 flex flex-col justify-between space-y-4">
+            
+            <!-- User Status Card -->
+            <div class="glass-card rounded-2xl p-3.5 flex items-center justify-between border-l-4 border-l-kaappan-yellow">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-kaappan-blue/80 border border-kaappan-yellow flex items-center justify-center text-kaappan-yellow text-lg font-black">
+                        👤
+                    </div>
+                    <div>
+                        <p class="text-xs text-yellow-200/80">Protected User</p>
+                        <h2 id="userNameDisplay" class="text-sm font-extrabold text-white">Anitha Kumar</h2>
+                    </div>
+                </div>
+                <button onclick="openModal('contactModal')" class="px-3 py-1.5 bg-kaappan-yellow text-slate-950 text-xs font-black rounded-xl hover:bg-amber-400 transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-user-plus"></i> Prior Members (<span id="memberCountBadge">0</span>)
+                </button>
+            </div>
+
+            <!-- MAIN SOS TRIGGER HUB -->
+            <div class="flex-1 flex flex-col items-center justify-center my-2 text-center relative">
+                
+                <!-- Instruction Hint -->
+                <p class="text-xs text-yellow-300 font-bold tracking-wide uppercase mb-3 flex items-center gap-1">
+                    <i class="fa-solid fa-hand-pointer text-kaappan-yellow animate-bounce"></i> Tap Below OR Double-Press Volume Keys
+                </p>
+
+                <!-- SOS GLOW BUTTON CONTAINER -->
+                <div class="relative my-2 flex items-center justify-center">
+                    <div class="absolute inset-0 rounded-full bg-kaappan-yellow/30 animate-ripple pointer-events-none"></div>
+                    <div class="absolute inset-0 rounded-full bg-rose-500/20 animate-ripple [animation-delay:0.5s] pointer-events-none"></div>
+
+                    <button id="sosBtn" onclick="triggerManualSOS()" class="relative z-10 w-44 h-44 rounded-full bg-gradient-to-tr from-amber-500 via-kaappan-yellow to-rose-500 p-1 font-black text-slate-950 shadow-2xl animate-pulse-glow hover:scale-105 active:scale-95 transition duration-200 flex flex-col items-center justify-center border-4 border-yellow-200">
+                        <span class="text-4xl mb-0.5 filter drop-shadow">🆘</span>
+                        <span class="text-2xl font-black tracking-tighter text-slate-950">PRESS SOS</span>
+                        <span class="text-[9px] font-black uppercase tracking-wider text-slate-900 bg-white/80 px-2 py-0.5 rounded-full mt-1">INSTANT WHATSAPP + SMS + CALL</span>
+                    </button>
+                </div>
+
+                <!-- GPS Status Bar -->
+                <div class="mt-4 flex flex-col items-center gap-1 text-[11px] bg-slate-900/90 px-3.5 py-2 rounded-xl border border-slate-800 text-slate-300 w-full max-w-xs shadow">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-location-dot text-kaappan-yellow animate-bounce"></i>
+                        <span id="gpsStatus">Acquiring High-Accuracy GPS...</span>
+                        <button onclick="fetchCurrentLocation(true)" class="ml-1 text-kaappan-sky hover:underline text-[10px]" title="Refresh GPS"><i class="fa-solid fa-rotate-right"></i></button>
+                    </div>
+                    <span id="gpsAccuracy" class="text-[9px] text-kaappan-yellow font-mono">Accuracy: Checking...</span>
+                </div>
+            </div>
+
+            <!-- FEATURES CARDS GRID -->
+            <div class="grid grid-cols-2 gap-2.5">
+                
+                <!-- Feature 1: AI Unconscious Safety Check -->
+                <div class="glass-card p-3 rounded-2xl flex flex-col justify-between border-t-2 border-t-kaappan-yellow">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-extrabold text-white flex items-center gap-1">🤖 AI Timer</span>
+                        <span id="aiTimerBadge" class="text-[9px] bg-slate-800 text-yellow-300 font-bold px-1.5 py-0.5 rounded">OFF</span>
+                    </div>
+                    <p class="text-[10px] text-slate-300 mb-2">Unconscious check-in timer trigger.</p>
+                    <select id="aiTimerSelect" onchange="toggleAITimer()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg py-1.5 px-2 text-yellow-300 font-bold focus:outline-none">
+                        <option value="0">Disabled</option>
+                        <option value="0.5">30 Sec (Demo)</option>
+                        <option value="15">15 Minutes</option>
+                        <option value="30">30 Minutes</option>
+                    </select>
+                </div>
+
+                <!-- Feature 2: Direct Voice Activation -->
+                <div class="glass-card p-3 rounded-2xl flex flex-col justify-between border-t-2 border-t-kaappan-yellow">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-extrabold text-white flex items-center gap-1">🎙️ Voice SOS</span>
+                        <span id="speechBadge" class="text-[9px] bg-slate-800 text-slate-400 font-bold px-1.5 py-0.5 rounded">OFF</span>
+                    </div>
+                    <p class="text-[10px] text-slate-300 mb-2">Shout "Help", "Emergency", "Kaappan".</p>
+                    <button id="speechToggleBtn" onclick="toggleSpeechRecognition()" class="w-full py-1.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-yellow-300 text-xs font-bold rounded-lg transition">
+                        Enable Voice
+                    </button>
+                </div>
+            </div>
+
+            <!-- SECURITY & AUTOMATION NOTICE -->
+            <div class="bg-slate-900/80 border border-amber-500/30 rounded-xl p-2.5 text-[10px] text-slate-300 flex items-start gap-2">
+                <i class="fa-solid fa-shield-cat text-kaappan-yellow text-sm mt-0.5"></i>
+                <p><strong>Browser Dispatch Notice:</strong> Kaappan pre-fills location & messages into WhatsApp, SMS, and Phone Call apps instantly. Tap <strong>"Send"</strong> in opened apps to complete dispatch per mobile OS security.</p>
+            </div>
+        </div>
+
+        <!-- FOOTER BAR -->
+        <footer class="mt-4 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
+            <span class="flex items-center gap-1">🛡️ Kaappan Safety System</span>
+            <button onclick="openModal('backendModal')" class="text-kaappan-yellow hover:underline font-bold flex items-center gap-1">
+                <i class="fa-solid fa-server"></i> Node.js & MySQL Backend Code
+            </button>
+        </footer>
+    </div>
+
+    <!-- MODAL 1: PRIOR EMERGENCY MEMBERS -->
+    <div id="contactModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-5 border border-kaappan-yellow/40 shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-3">
+                <h3 class="text-base font-extrabold text-yellow-300 flex items-center gap-2">
+                    <i class="fa-solid fa-users-gear text-kaappan-yellow"></i> Set Prior Emergency Members
+                </h3>
+                <button onclick="closeModal('contactModal')" class="text-slate-400 hover:text-white p-1 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Add Contact Form -->
+            <form onsubmit="handleAddMember(event)" class="space-y-2 mb-4 bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="memberName" required placeholder="Name (e.g. Appa)" class="bg-slate-950 border border-slate-700 rounded-xl py-1.5 px-3 text-xs text-white focus:outline-none focus:border-kaappan-yellow">
+                    <input type="tel" id="memberPhone" required pattern="[0-9]{10}" placeholder="Phone (10 digits)" class="bg-slate-950 border border-slate-700 rounded-xl py-1.5 px-3 text-xs text-white focus:outline-none focus:border-kaappan-yellow">
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="memberRel" placeholder="Relation (e.g. Father, Friend)" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl py-1.5 px-3 text-xs text-white focus:outline-none focus:border-kaappan-yellow">
+                    <button type="submit" class="px-4 py-1.5 bg-kaappan-yellow text-slate-950 font-black text-xs rounded-xl hover:bg-amber-400 transition">
+                        Add
+                    </button>
+                </div>
+            </form>
+
+            <!-- Members List -->
+            <div id="membersList" class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[150px]">
+                <!-- Dynamic Content -->
+            </div>
+
+            <div class="mt-4 pt-2 border-t border-slate-800">
+                <button onclick="closeModal('contactModal')" class="w-full py-2 bg-slate-800 text-slate-200 font-bold text-xs rounded-xl hover:bg-slate-700">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: DISARM AI TIMER (PIN ENTRY) -->
+    <div id="pinModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-xs rounded-3xl p-5 border border-rose-500/50 shadow-2xl text-center">
+            <div class="w-12 h-12 bg-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto mb-2 text-xl font-black">
+                🚨
+            </div>
+            <h3 class="text-sm font-extrabold text-white mb-1">AI Safety Check-in Active</h3>
+            <p class="text-xs text-slate-300 mb-3">Enter 4-digit Security PIN to confirm safety:</p>
+            
+            <input type="password" id="disarmPin" maxlength="4" class="w-32 mx-auto text-center tracking-widest text-xl font-black bg-slate-900 border border-slate-700 rounded-xl py-2 mb-3 text-kaappan-yellow focus:outline-none focus:border-kaappan-yellow">
+            
+            <div class="flex gap-2">
+                <button onclick="disarmAITimer()" class="flex-1 py-2 bg-emerald-500 text-slate-950 font-black text-xs rounded-xl hover:bg-emerald-400">
+                    I AM SAFE
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: NODE.JS & MYSQL BACKEND CODE EXPORT -->
+    <div id="backendModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-5 border border-kaappan-yellow/40 shadow-2xl flex flex-col max-h-[85vh]">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-3">
+                <h3 class="text-sm font-extrabold text-yellow-300 flex items-center gap-2">
+                    <i class="fa-brands fa-node-js text-emerald-400"></i> Node.js + Express + MySQL Backend
+                </h3>
+                <button onclick="closeModal('backendModal')" class="text-slate-400 hover:text-white p-1 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto space-y-3 text-left">
+                <p class="text-xs text-slate-300">Run in <strong>Laragon (MySQL)</strong> and Node.js backend server setup:</p>
+                
+                <div>
+                    <span class="text-[10px] font-bold text-kaappan-yellow uppercase">1. MySQL Database Schema (`schema.sql`):</span>
+                    <pre class="bg-slate-950 p-2.5 rounded-xl text-[10px] font-mono text-emerald-400 overflow-x-auto border border-slate-800">
+CREATE DATABASE IF NOT EXISTS safeshield_db;
+USE safeshield_db;
+
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(15) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    pin VARCHAR(10) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS prior_members (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    phone VARCHAR(15) NOT NULL,
+    relationship VARCHAR(50),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);</pre>
+                </div>
+
+                <div>
+                    <span class="text-[10px] font-bold text-kaappan-yellow uppercase">2. Express Server (`server.js`):</span>
+                    <pre class="bg-slate-950 p-2.5 rounded-xl text-[10px] font-mono text-sky-300 overflow-x-auto border border-slate-800">
+const express = require('express');
+const mysql = require('mysql2');
+const cors = require('cors');
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+
+// Laragon MySQL Connection
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'safeshield_db'
+});
+
+db.connect(err => {
+    if(err) console.error('Database connection failed:', err);
+    else console.log('Connected to Laragon MySQL Database!');
+});
+
+// Register API
+app.post('/api/register', (req, res) => {
+    const { name, phone, email, password, pin } = req.body;
+    const query = 'INSERT INTO users (name, phone, email, password, pin) VALUES (?, ?, ?, ?, ?)';
+    db.query(query, [name, phone, email, password, pin], (err, result) => {
+        if(err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, userId: result.insertId });
+    });
+});
+
+app.listen(3000, () => console.log('Kaappan Server running on port 3000'));</pre>
+                </div>
+            </div>
+
+            <div class="mt-3 pt-2 border-t border-slate-800">
+                <button onclick="closeModal('backendModal')" class="w-full py-2 bg-slate-800 text-slate-200 font-bold text-xs rounded-xl">
+                    Close Backend Preview
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT APP LOGIC -->
+    <script>
+        // GLOBAL CONSTANTS & APP STATE
+        const STORAGE_USER_KEY = 'kaappan_user_account';
+        const STORAGE_MEMBERS_KEY = 'kaappan_prior_members';
+        
+        let currentUser = null;
+        let priorMembers = [];
+        let currentLocation = { lat: null, lng: null };
+        let lastVolumePressTime = 0;
+        let aiTimerInstance = null;
+        let aiTimerSecondsRemaining = 0;
+        let speechRecognition = null;
+        let isSpeechListening = false;
+
+        // INITIALIZATION
+        window.onload = function() {
+            checkNetworkStatus();
+            window.addEventListener('online', checkNetworkStatus);
+            window.addEventListener('offline', checkNetworkStatus);
+
+            // Request Location Permission & High Accuracy GPS immediately on load
+            fetchCurrentLocation(true);
+
+            // Register Hardware Key Listeners for Volume Buttons
+            initHardwareVolumeKeyListener();
+
+            // Load saved user & members
+            const savedUser = localStorage.getItem(STORAGE_USER_KEY);
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                loadPriorMembers();
+                showDashboardView();
+            } else {
+                showAuthView();
+            }
+        };
+
+        // NETWORK MONITOR
+        function checkNetworkStatus() {
+            const badge = document.getElementById('networkBadge');
+            if (navigator.onLine) {
+                badge.className = "px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> ONLINE`;
+            } else {
+                badge.className = "px-2 py-1 rounded-full text-[10px] font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> OFFLINE CELLULAR`;
+            }
+        }
+
+        // ACCURATE GEOLOCATION ENGINE
+        function fetchCurrentLocation(isManual) {
+            const gpsStatus = document.getElementById('gpsStatus');
+            const gpsAccuracy = document.getElementById('gpsAccuracy');
+
+            if (navigator.geolocation) {
+                if (isManual && gpsStatus) {
+                    gpsStatus.innerText = "Acquiring High-Accuracy GPS Signal...";
+                }
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        currentLocation.lat = position.coords.latitude.toFixed(6);
+                        currentLocation.lng = position.coords.longitude.toFixed(6);
+                        const acc = position.coords.accuracy ? Math.round(position.coords.accuracy) : 'Low';
+
+                        if (gpsStatus) {
+                            gpsStatus.innerHTML = `Live GPS: <span class="font-bold text-white">${currentLocation.lat}, ${currentLocation.lng}</span>`;
+                        }
+                        if (gpsAccuracy) {
+                            gpsAccuracy.innerText = `Accuracy: Precise within ~${acc} meters`;
+                        }
+                    },
+                    (error) => {
+                        console.warn("GPS error:", error);
+                        if (gpsStatus) gpsStatus.innerText = "GPS Permission Required! Enable Location";
+                        if (gpsAccuracy) gpsAccuracy.innerText = "Accuracy: Location unavailable";
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } else {
+                if (gpsStatus) gpsStatus.innerText = "Geolocation unavailable in browser";
+            }
+        }
+
+        // AUTHENTICATION TAB SWITCHER
+        function switchAuthTab(tab) {
+            const loginForm = document.getElementById('loginForm');
+            const regForm = document.getElementById('registerForm');
+            const tabLoginBtn = document.getElementById('tabLoginBtn');
+            const tabRegisterBtn = document.getElementById('tabRegisterBtn');
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                regForm.classList.add('hidden');
+                tabLoginBtn.className = "flex-1 py-2 rounded-lg text-xs font-bold transition duration-200 bg-kaappan-yellow text-slate-950 shadow";
+                tabRegisterBtn.className = "flex-1 py-2 rounded-lg text-xs font-bold transition duration-200 text-slate-400";
+            } else {
+                loginForm.classList.add('hidden');
+                regForm.classList.remove('hidden');
+                tabRegisterBtn.className = "flex-1 py-2 rounded-lg text-xs font-bold transition duration-200 bg-kaappan-yellow text-slate-950 shadow";
+                tabLoginBtn.className = "flex-1 py-2 rounded-lg text-xs font-bold transition duration-200 text-slate-400";
+            }
+        }
+
+        // REGISTER HANDLER
+        function handleRegister(e) {
+            e.preventDefault();
+            const name = document.getElementById('regName').value;
+            const phone = document.getElementById('regPhone').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const pin = document.getElementById('regPin').value;
+
+            currentUser = { name, phone, email, password, pin };
+            localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(currentUser));
+            
+            alert("🛡️ Registration Successful! Account protected by Kaappan.");
+            loadPriorMembers();
+            showDashboardView();
+        }
+
+        // LOGIN HANDLER
+        function handleLogin(e) {
+            e.preventDefault();
+            const loginId = document.getElementById('loginId').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const savedUser = localStorage.getItem(STORAGE_USER_KEY);
+            if (!savedUser) {
+                alert("No account registered yet! Please register first.");
+                switchAuthTab('register');
+                return;
+            }
+
+            const user = JSON.parse(savedUser);
+            if ((user.phone === loginId || user.email === loginId) && user.password === password) {
+                currentUser = user;
+                loadPriorMembers();
+                showDashboardView();
+            } else {
+                alert("Invalid Credentials! Please check phone/email and password.");
+            }
+        }
+
+        function logoutUser() {
+            if (confirm("Are you sure you want to log out from Kaappan?")) {
+                currentUser = null;
+                showAuthView();
+            }
+        }
+
+        function showAuthView() {
+            document.getElementById('authSection').classList.remove('hidden');
+            document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('logoutBtn').classList.add('hidden');
+        }
+
+        function showDashboardView() {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.remove('hidden');
+            document.getElementById('logoutBtn').classList.remove('hidden');
+            document.getElementById('userNameDisplay').innerText = currentUser ? currentUser.name : "Protected User";
+            
+            // Refresh location on dashboard view
+            fetchCurrentLocation(false);
+        }
+
+        // PRIOR MEMBERS MANAGEMENT
+        function loadPriorMembers() {
+            const saved = localStorage.getItem(STORAGE_MEMBERS_KEY);
+            priorMembers = saved ? JSON.parse(saved) : [];
+            renderMembersList();
+        }
+
+        function handleAddMember(e) {
+            e.preventDefault();
+            const name = document.getElementById('memberName').value;
+            const phone = document.getElementById('memberPhone').value;
+            const rel = document.getElementById('memberRel').value || 'Emergency Contact';
+
+            const newMember = { id: Date.now(), name, phone, relationship: rel };
+            priorMembers.push(newMember);
+            localStorage.setItem(STORAGE_MEMBERS_KEY, JSON.stringify(priorMembers));
+            
+            // Reset form inputs
+            document.getElementById('memberName').value = '';
+            document.getElementById('memberPhone').value = '';
+            document.getElementById('memberRel').value = '';
+
+            renderMembersList();
+        }
+
+        function deleteMember(id) {
+            priorMembers = priorMembers.filter(m => m.id !== id);
+            localStorage.setItem(STORAGE_MEMBERS_KEY, JSON.stringify(priorMembers));
+            renderMembersList();
+        }
+
+        function renderMembersList() {
+            const listEl = document.getElementById('membersList');
+            const badgeEl = document.getElementById('memberCountBadge');
+            badgeEl.innerText = priorMembers.length;
+
+            if (priorMembers.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-6 text-slate-400 text-xs">
+                        <i class="fa-solid fa-user-slash text-2xl mb-1 text-slate-600 block"></i>
+                        No emergency members added yet.<br>Add family/friends above.
+                    </div>
+                `;
+                return;
+            }
+
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const smsDelim = isIOS ? '&' : '?';
+
+            listEl.innerHTML = priorMembers.map(m => {
+                let cleanPhone = m.phone.replace(/[^0-9+]/g, '');
+                if (!cleanPhone.startsWith('+') && cleanPhone.length === 10) cleanPhone = '+91' + cleanPhone;
+                const msg = encodeURIComponent(`EMERGENCY! Kaappan Alert from ${currentUser ? currentUser.name : 'User'}`);
+
+                return `
+                    <div class="glass-card p-2.5 rounded-xl flex items-center justify-between border border-slate-700">
+                        <div>
+                            <h4 class="text-xs font-bold text-white">${m.name} <span class="text-[9px] text-yellow-300 font-normal">(${m.relationship})</span></h4>
+                            <p class="text-[10px] font-mono text-slate-300">${cleanPhone}</p>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <a href="tel:${cleanPhone}" class="p-2 bg-emerald-500/20 text-emerald-300 rounded-lg text-xs hover:bg-emerald-500/40" title="Call"><i class="fa-solid fa-phone"></i></a>
+                            <a href="sms:${cleanPhone}${smsDelim}body=${msg}" class="p-2 bg-blue-500/20 text-blue-300 rounded-lg text-xs hover:bg-blue-500/40" title="SMS"><i class="fa-solid fa-comment-sms"></i></a>
+                            <a href="https://wa.me/${cleanPhone.replace('+','')}?text=${msg}" target="_blank" class="p-2 bg-green-500/20 text-green-400 rounded-lg text-xs hover:bg-green-500/40" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+                            <button onclick="deleteMember(${m.id})" class="p-2 bg-rose-500/20 text-rose-300 rounded-lg text-xs hover:bg-rose-500/40" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // INSTANT SOS DISPATCH ENGINE (0-SECOND DELAY)
+        function triggerManualSOS() {
+            if (!priorMembers || priorMembers.length === 0) {
+                alert("Kaappan: Please add prior emergency members in the Dashboard first!");
+                openModal('contactModal');
+                return;
+            }
+
+            // 1. Device Haptic Vibration
+            if (navigator.vibrate) {
+                navigator.vibrate([1000, 300, 1000, 300, 1000, 300, 1000]);
+            }
+
+            // 2. Play Loud Siren
+            playSirenSound();
+
+            // 3. Instant Execution without delay
+            executeDispatchPipeline();
+        }
+
+        function executeDispatchPipeline() {
+            // Flash screen background
+            const overlay = document.getElementById('emergencyFlashOverlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('animate-flash-screen');
+
+            const mapsUrl = (currentLocation.lat && currentLocation.lng) ? 
+                `https://maps.google.com/?q=${currentLocation.lat},${currentLocation.lng}` : 
+                `https://maps.google.com`;
+
+            const userName = currentUser ? currentUser.name : 'A Kaappan User';
+            const emergencyMessage = `🚨 EMERGENCY! I am ${userName} and I need urgent help! My live location: ${mapsUrl} - Sent via Kaappan (காப்பான்)`;
+
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const smsDelimiter = isIOS ? '&' : '?';
+
+            // Loop and dispatch for each prior member sequentially
+            priorMembers.forEach((member, index) => {
+                let cleanPhone = member.phone.replace(/[^0-9+]/g, '');
+                if (!cleanPhone.startsWith('+') && cleanPhone.length === 10) {
+                    cleanPhone = '+91' + cleanPhone; // India country code default
+                }
+
+                const smsUrl = `sms:${cleanPhone}${smsDelimiter}body=${encodeURIComponent(emergencyMessage)}`;
+                const callUrl = `tel:${cleanPhone}`;
+                const waUrl = `https://wa.me/${cleanPhone.replace('+','')}?text=${encodeURIComponent(emergencyMessage)}`;
+
+                // 1. Trigger Direct WhatsApp Message Launch
+                setTimeout(() => {
+                    window.open(waUrl, '_blank');
+                }, index * 2500);
+
+                // 2. Trigger SMS launch
+                setTimeout(() => {
+                    window.location.href = smsUrl;
+                }, (index * 2500) + 1000);
+
+                // 3. Trigger Direct Phone Call
+                setTimeout(() => {
+                    window.location.href = callUrl;
+                }, (index * 2500) + 2000);
+            });
+
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('animate-flash-screen');
+            }, 8000);
+        }
+
+        // HARDWARE VOLUME BUTTON SHORTCUT LISTENER
+        function initHardwareVolumeKeyListener() {
+            window.addEventListener('keydown', (e) => {
+                // KeyCodes or Keys for volume controls across standard Android/Web View wrappers
+                if (['AudioVolumeUp', 'AudioVolumeDown', 'VolumeUp', 'VolumeDown'].includes(e.key) || 
+                    [24, 25, 174, 175].includes(e.keyCode)) {
+                    
+                    const now = Date.now();
+                    // Double press within 800ms triggers SOS
+                    if (now - lastVolumePressTime < 800) {
+                        triggerManualSOS();
+                    }
+                    lastVolumePressTime = now;
+                }
+            });
+        }
+
+        // WEB AUDIO API SIREN SOUND GENERATOR
+        function playSirenSound() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                
+                const audioCtx = new AudioContext();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.5);
+
+                gain.gain.setValueAtTime(1, audioCtx.currentTime);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 2.0);
+            } catch (e) {
+                console.log("Audio play prevented or unsupported:", e);
+            }
+        }
+
+        // AI UNCONSCIOUS SAFETY CHECK-IN TIMER
+        function toggleAITimer() {
+            const val = parseFloat(document.getElementById('aiTimerSelect').value);
+            const badge = document.getElementById('aiTimerBadge');
+
+            if (aiTimerInstance) clearInterval(aiTimerInstance);
+
+            if (val === 0) {
+                badge.innerText = "OFF";
+                badge.className = "text-[9px] bg-slate-800 text-yellow-300 font-bold px-1.5 py-0.5 rounded";
+                return;
+            }
+
+            aiTimerSecondsRemaining = val * 60;
+            badge.innerText = `ACTIVE (${Math.round(aiTimerSecondsRemaining)}s)`;
+            badge.className = "text-[9px] bg-rose-500/20 text-rose-300 font-bold px-1.5 py-0.5 rounded border border-rose-500/30 animate-pulse";
+
+            aiTimerInstance = setInterval(() => {
+                aiTimerSecondsRemaining--;
+                badge.innerText = `${Math.ceil(aiTimerSecondsRemaining)}s`;
+
+                if (aiTimerSecondsRemaining <= 0) {
+                    clearInterval(aiTimerInstance);
+                    badge.innerText = "TRIGGERED";
+                    openModal('pinModal');
+
+                    // 15 seconds to disarm before automatic emergency dispatch
+                    setTimeout(() => {
+                        const modal = document.getElementById('pinModal');
+                        if (!modal.classList.contains('hidden')) {
+                            closeModal('pinModal');
+                            triggerManualSOS();
+                        }
+                    }, 15000);
+                }
+            }, 1000);
+        }
+
+        function disarmAITimer() {
+            const enteredPin = document.getElementById('disarmPin').value;
+            const correctPin = currentUser ? currentUser.pin : '1234';
+
+            if (enteredPin === correctPin) {
+                closeModal('pinModal');
+                document.getElementById('aiTimerSelect').value = "0";
+                toggleAITimer();
+                document.getElementById('disarmPin').value = '';
+                alert("🛡️ Kaappan Safety Confirmed: Timer Disarmed.");
+            } else {
+                alert("Incorrect Security PIN!");
+            }
+        }
+
+        // SPEECH RECOGNITION EMERGENCY ACTIVATION
+        function toggleSpeechRecognition() {
+            const btn = document.getElementById('speechToggleBtn');
+            const badge = document.getElementById('speechBadge');
+
+            if (isSpeechListening) {
+                if (speechRecognition) speechRecognition.stop();
+                isSpeechListening = false;
+                btn.innerText = "Enable Voice";
+                badge.innerText = "OFF";
+                badge.className = "text-[9px] bg-slate-800 text-slate-400 font-bold px-1.5 py-0.5 rounded";
+                return;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Speech recognition is not supported in your mobile browser.");
+                return;
+            }
+
+            speechRecognition = new SpeechRecognition();
+            speechRecognition.continuous = true;
+            speechRecognition.lang = 'en-US';
+
+            speechRecognition.onresult = function(event) {
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        const transcript = event.results[i][0].transcript.toLowerCase();
+                        if (transcript.includes('help') || transcript.includes('emergency') || transcript.includes('sos') || transcript.includes('kaappan')) {
+                            triggerManualSOS();
+                        }
+                    }
+                }
+            };
+
+            speechRecognition.onerror = function() {
+                isSpeechListening = false;
+                btn.innerText = "Enable Voice";
+                badge.innerText = "OFF";
+            };
+
+            speechRecognition.start();
+            isSpeechListening = true;
+            btn.innerText = "Listening...";
+            badge.innerText = "LISTENING";
+            badge.className = "text-[9px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-500/30 animate-pulse";
+        }
+
+        // MODAL HELPERS
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
